@@ -10,10 +10,18 @@ import sys
 
 
 def main() -> None:
-    if len(sys.argv) > 1 and sys.argv[1] == "setup":
+    args = sys.argv[1:]
+    if args and args[0] in ("-h", "--help"):
+        print(
+            "Usage:\n"
+            "  logisim-mcp                 Run the stdio MCP server\n"
+            "  logisim-mcp setup [options] Register with an MCP client\n"
+        )
+        return
+    if args and args[0] == "setup":
         from .client_setup import main as setup_main
 
-        sys.exit(setup_main(sys.argv[2:]))
+        sys.exit(setup_main(args[1:]))
     from .server import mcp
 
     mcp.run()

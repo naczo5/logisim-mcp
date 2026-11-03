@@ -117,6 +117,9 @@ def resolve_jar(explicit: Path | None) -> Path | None:
     env = os.environ.get("LOGISIM_JAR")
     if env:
         return Path(env).expanduser()
+    for candidate in sorted(Path.cwd().glob("logisim-evolution-5*.jar")):
+        if candidate.is_file():
+            return candidate
     default = Path(DEFAULT_LOGISIM_JAR)
     if default.is_file():
         return default
@@ -210,7 +213,8 @@ def run(argv: list[str] | None = None) -> int:
     if jar is None:
         if not sys.stdin.isatty() or args.yes or args.dry_run:
             print(
-                "Pass --jar /path/to/logisim-evolution-5.0.0-all.jar",
+                "Pass --jar /path/to/logisim-evolution-5.0.0-all.jar "
+                "or put the jar in the current directory",
                 file=sys.stderr,
             )
             return 2

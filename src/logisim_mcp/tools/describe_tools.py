@@ -51,46 +51,29 @@ class _UF:
             self.parent[rb] = ra
 
 
-def _wire_segments_along(start: Point, end: Point) -> list[Point]:
-    """Return every grid-aligned point on a horizontal or vertical wire."""
-    if start[0] == end[0]:
-        a, b = sorted((start[1], end[1]))
-        return [(start[0], y) for y in range(a, b + 1, 10)]
-    if start[1] == end[1]:
-        a, b = sorted((start[0], end[0]))
-        return [(x, start[1]) for x in range(a, b + 1, 10)]
-    return []  # diagonal — not a conducting segment; Logisim refuses these
-
-
 def _build_nets(project: Project, circuit: Circuit) -> tuple[dict[Point, int], dict[str, int]]:
     uf = _UF()
-    for wire in circuit.wires:
-        if is_diagonal(wire):
-            continue
-        pts = _wire_segments_along(wire.start, wire.end)
-        for endpoint in (wire.start, wire.end):
-            if endpoint not in pts:
-                pts.append(endpoint)
-        anchor = pts[0]
-        for q in pts[1:]:
-            uf.union(anchor, q)
+    wires = [wire for wire in circuit.wires if not is_diagonal(wire)]
 
-    # A port or wire end sitting on a segment interior is connected, even
-    # when the wire was not split at that grid point (Logisim T-junctions).
-    extras: list[Point] = []
+    # A wire is one net from end to end. Intermediate grid points are not
+    # terminals: two wires crossing at interior points do not connect in
+    # Logisim unless a wire end or component port lands on the crossing.
+    terminals: set[Point] = set()
+    for wire in wires:
+        uf.union(wire.start, wire.end)
+        terminals.add(wire.start)
+        terminals.add(wire.end)
+
     for comp in circuit.components:
         spec = _spec_for(project, comp)
         if spec is None:
             continue
         for port in spec.ports:
-            extras.append((comp.loc[0] + port.dx, comp.loc[1] + port.dy))
-    for wire in circuit.wires:
-        extras.append(wire.start)
-        extras.append(wire.end)
-    for wire in circuit.wires:
-        if is_diagonal(wire):
-            continue
-        for point in extras:
+            terminals.add((comp.loc[0] + port.dx, comp.loc[1] + port.dy))
+
+    # T-junctions: a wire end or port on a segment connects to that wire.
+    for wire in wires:
+        for point in terminals:
             if on_segment(point, wire.start, wire.end):
                 uf.union(wire.start, point)
 

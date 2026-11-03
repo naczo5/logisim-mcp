@@ -43,6 +43,32 @@ def test_static_drc_flags_shorts_floats_crossings_and_diagonals() -> None:
     assert (0, 120) not in point_to_net or point_to_net[(0, 120)] != point_to_net.get((40, 160))
 
 
+def test_crossing_wires_stay_separate_but_t_junctions_connect() -> None:
+    project = empty_project()
+    circuit = project.circuits[0]
+    circuit.components.extend(
+        [
+            Component("0", "Pin", (0, 100), {"label": "A"}),
+            Component("0", "Pin", (100, 0), {"label": "B"}),
+        ]
+    )
+    circuit.wires.extend(
+        [
+            Wire((0, 100), (200, 100)),
+            Wire((100, 0), (100, 200)),
+        ]
+    )
+    point_to_net, _ = _build_nets(project, circuit)
+    assert point_to_net[(0, 100)] == point_to_net[(200, 100)]
+    assert point_to_net[(100, 0)] == point_to_net[(100, 200)]
+    assert point_to_net[(0, 100)] != point_to_net[(100, 0)]
+    assert static_drc(project, circuit)["shorted_nets"] == []
+
+    circuit.wires.append(Wire((50, 100), (50, 300)))
+    point_to_net, _ = _build_nets(project, circuit)
+    assert point_to_net[(0, 100)] == point_to_net[(50, 300)]
+
+
 def test_drc_ignores_empty_tunnel_labels_and_trims_real_ones() -> None:
     project = empty_project()
     circuit = project.circuits[0]

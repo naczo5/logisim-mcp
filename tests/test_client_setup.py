@@ -9,15 +9,37 @@ from logisim_mcp.client_setup import (
     choose_launcher,
     claude_desktop_config,
     merge_server,
+    resolve_jar,
     run,
     running_from_uv,
 )
+from logisim_mcp.__main__ import main as cli_main
 
 
 def test_uv_cache_is_ephemeral() -> None:
     assert running_from_uv("/home/user/.cache/uv/archive-v0/abc/bin/python")
     assert running_from_uv(r"C:\Users\user\AppData\Local\uv\cache\archive-v0\abc\python.exe")
     assert not running_from_uv("/home/user/logisim-mcp/.venv/bin/python")
+
+
+def test_cli_help_does_not_start_server(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("sys.argv", ["logisim-mcp", "--help"])
+    cli_main()
+    output = capsys.readouterr().out
+    assert "Usage:" in output
+    assert "setup" in output
+
+
+def test_setup_finds_a_jar_in_the_current_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jar = tmp_path / "logisim-evolution-5.0.0-all.jar"
+    jar.write_bytes(b"jar")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("LOGISIM_JAR", raising=False)
+    assert resolve_jar(None) == jar
 
 
 def test_launcher_python_uses_this_interpreter() -> None:
