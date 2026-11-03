@@ -186,9 +186,10 @@ def test_render_reports_pixel_dimensions(half: Path, tmp_path: Path) -> None:
         assert (w, h) == (info["pixel_width"], info["pixel_height"])
 
 
-def test_dense_box_port_labels_never_overlap(tmp_path: Path) -> None:
-    """Q_bar vs the next CLK: in the reviewer's dense layout, port labels
-    collided into a scrambled word. skip_overlap fixes it."""
+def test_dense_box_port_labels_never_overlap_or_drop(tmp_path: Path) -> None:
+    """Q_bar vs the next CLK: in the reported dense layout, port labels
+    collided into a scrambled word. skip_overlap + wide-enough fallback
+    steps fix it — and no label may silently vanish."""
     from logisim_mcp.tools.builder_tools import add_component
 
     circ = tmp_path / "dense.circ"
@@ -202,7 +203,9 @@ def test_dense_box_port_labels_never_overlap(tmp_path: Path) -> None:
     circuit = project.require_circuit("main")
     scene = build_scene(project, circuit)
     texts = [c for c in scene.commands if c[0] == "text"]
-    assert len(texts) >= 4  # titles + the labels that did fit
+    # 4 boxes x (7 port labels + 1 title) must ALL be drawn: a fallback
+    # step smaller than the label rect once dropped J and CLK entirely.
+    assert len(texts) == 4 * 8
     rects = []
     for cmd in texts:
         _, x, y, s, size, _color, anchor = cmd

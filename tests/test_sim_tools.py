@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
-from typing import Any
 
 from logisim_mcp.config import SETTINGS
 from logisim_mcp.tools.builder_tools import add_component, add_gate, add_pin, connect
@@ -42,8 +42,21 @@ def _bench_project(tmp_path: Path, bench: bool) -> Path:
     p = tmp_path / "lab.circ"
     create_circuit_file(str(p))
     if bench:
+        # What Logisim Evolution's --test-circuit flow actually saves: a
+        # dedicated circuit named logisim_test_verif (driven through its
+        # test_bench_done_o / test_bench_ok_o output pins).
+        bench_circuit = (
+            '  <circuit name="logisim_test_verif">\n'
+            '    <a name="circuit" val="logisim_test_verif"/>\n'
+            '    <comp lib="0" loc="(100,100)" name="Pin">\n'
+            '      <a name="facing" val="west"/>\n'
+            '      <a name="output" val="true"/>\n'
+            '      <a name="label" val="test_bench_ok_o"/>\n'
+            "    </comp>\n"
+            "  </circuit>\n"
+        )
         text = p.read_text()
-        p.write_text(text.replace("</project>", '  <testbench name="tb" circuit="main"/>\n</project>'))
+        p.write_text(text.replace("</project>", bench_circuit + "</project>"))
     return p
 
 
@@ -55,6 +68,7 @@ def test_run_test_circuit_refuses_projects_without_a_testbench(tmp_path: Path) -
         run_test_circuit(str(p))
     msg = str(excinfo.value)
     assert "simulate_tty" in msg and "verify_truth_table" in msg
+    assert "logisim_test_verif" in msg
 
 
 @pytest.mark.parametrize(
@@ -92,7 +106,7 @@ def test_run_test_circuit_reports_reason_and_stderr(
         assert "timed out" in res["reason"]
     elif exit_code == 0:
         assert res["ok"] is True
-        assert "reached its Halt" in res["reason"]
+        assert "signalled OK" in res["reason"]
     else:
         assert res["ok"] is False
         assert "(exit 100)" in res["reason"]
@@ -103,7 +117,6 @@ def test_run_test_circuit_reports_reason_and_stderr(
 
 def test_count_testbenches_finds_saved_benches(tmp_path: Path) -> None:
     from logisim_mcp.circ.parser import parse
-    from logisim_mcp.tools.sim_tools import _count_testbenches
 
     bench = _bench_project(tmp_path, bench=True)
     assert _count_testbenches(parse(bench)) == 1

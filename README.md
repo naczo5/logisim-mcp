@@ -127,7 +127,7 @@ python3 -m venv .venv
 | `LOGISIM_WORKDIR` | current dir | Working dir for subprocess calls |
 | `LOGISIM_TIMEOUT_SEC` | `30` | Default subprocess timeout (clamped to ≤ 600) |
 | `LOGISIM_LOCALE` | `en` | Forces stable English stdout |
-| `LOGISIM_HEADLESS` | `1` | Forces `-Djava.awt.headless=true` on every Java call so errors become clean stderr failures; `0` allows AWT error dialogs |
+| `LOGISIM_HEADLESS` | `1` | Adds `-Djava.awt.headless=true` to every Java call so a startup error fails fast on stderr instead of opening a modal dialog (`0` reverts to dialog-capable AWT); note Logisim may still surface its own message with a nonzero exit |
 
 ## End-to-end example (what Claude does)
 

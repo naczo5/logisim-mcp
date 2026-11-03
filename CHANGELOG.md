@@ -31,12 +31,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ### Fixed
 
 - `run_test_circuit` fails cleanly on a project without a test bench:
-  `--test-circuit` on such a file crashes Logisim 5.0.0
-  (`TestBench.startTestBench` NPE, exit 100) with no clue in the output.
-  The tool now refuses up front and points at the alternatives.
-- Every Java launch runs with `-Djava.awt.headless=true`
-  (`LOGISIM_HEADLESS=0` opts out), so Logisim's startup errors surface
-  on stderr instead of opening modal dialogs that can block a session.
+  `--test-circuit` needs the `logisim_test_verif` circuit Logisim saves
+  from its test-bench flow; on other files Logisim 5.0.0 NPEs
+  (`TestBench.startTestBench`, exit 100) with no clue in the output.
+  The tool now refuses up front, states the requirement, and points at
+  the alternatives. Results carry a `reason` and the bench pin
+  semantics (`test_bench_ok_o`).
+- Every Java launch adds `-Djava.awt.headless=true`
+  (`LOGISIM_HEADLESS=0` opts out), so Logisim's startup errors no
+  longer open modal dialogs that can block a session; the process
+  fails on a nonzero exit instead.
 - `check_circuit_drc` no longer reports unconnected async preset/clear
   pins (`S`/`R`/`PRE`/`CLR` of flip-flops) as `floating_inputs`; they
   appear in `unconnected_optional_inputs` and render with gray rings,

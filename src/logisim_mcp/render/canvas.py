@@ -156,7 +156,7 @@ class Scene:
         color: tuple[int, int, int] = LABEL,
         anchor: str = "start",
         skip_overlap: bool = False,
-    ) -> None:
+    ) -> bool:
         """Draw ``s`` with its *cap top-left region* near ``(x, y)``.
 
         ``anchor`` is interpreted horizontally only ('start', 'middle',

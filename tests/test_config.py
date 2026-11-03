@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 
@@ -11,6 +12,55 @@ from logisim_mcp.config import (
 )
 from logisim_mcp.runner import java as java_runner
 from logisim_mcp.runner.java import JavaResult, apply_windows_prefs, prefs_classes
+
+
+def test_headless_env_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """LOGISIM_HEADLESS drives Settings.headless; garbage fails fast."""
+    from logisim_mcp.config import _parse_bool_env, load_settings
+
+    assert _parse_bool_env(None, default=True) is True
+    assert _parse_bool_env("", default=True) is True
+    assert _parse_bool_env("0", default=False) is False
+    assert _parse_bool_env("false", default=True) is False
+    assert _parse_bool_env(" OFF ", default=True) is False
+    assert _parse_bool_env("1", default=False) is True
+    assert _parse_bool_env("yes", default=False) is True
+    with pytest.raises(ValueError):
+        _parse_bool_env("banana", default=True)
+
+    monkeypatch.delenv("LOGISIM_HEADLESS", raising=False)
+    assert load_settings().headless is True  # default
+    monkeypatch.setenv("LOGISIM_HEADLESS", "0")
+    assert load_settings().headless is False
+    monkeypatch.setenv("LOGISIM_HEADLESS", "1")
+    assert load_settings().headless is True
+
+
+def test_settings_headless_flag_lands_before_jar(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOGISIM_HEADLESS", raising=False)
+    monkeypatch.setattr("logisim_mcp.config._resolve_java", lambda: "java")
+    from logisim_mcp.config import Settings
+
+    s = Settings(
+        logisim_jar=Path("/tmp/x.jar"),
+        workdir=Path.cwd(),
+        timeout_sec=5,
+        locale="en",
+    )
+    s._java_binary = "java"
+    cmd = s.java_cmd("circ.circ")
+    assert cmd[:3] == ["java", "-Djava.awt.headless=true", "-jar"]
+    assert "circ.circ" in cmd
+
+    s_off = Settings(
+        logisim_jar=Path("/tmp/x.jar"),
+        workdir=Path.cwd(),
+        timeout_sec=5,
+        locale="en",
+        headless=False,
+    )
+    s_off._java_binary = "java"
+    assert s_off.java_cmd()[:2] == ["java", "-jar"]
 
 
 def test_parse_java_major_treats_1_8_as_8() -> None:
@@ -144,7 +194,8 @@ def test_javac_path_fallback_rejects_an_old_compiler(
         resolve_javac(str(java))
 
 
-def test_windows_prefs_launch_is_not_jar_mode() -> None:
+def test_windows_prefs_launch_is_not_jar_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LOGISIM_HEADLESS", raising=False)
     cmd = apply_windows_prefs(
         ["java", "-jar", "logisim.jar", "--no-splash", "--locale", "en"],
         "classes",
@@ -191,6 +242,8 @@ def test_helper_cache_publish_is_atomic_and_keeps_the_winner(tmp_path) -> None:
 def test_windows_run_java_does_not_need_javac(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.delenv("LOGISIM_HEADLESS", raising=False)
+
     def fail(*_args, **_kwargs):
         raise AssertionError("ordinary Java calls must not compile helpers")
 

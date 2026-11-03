@@ -8,8 +8,10 @@ ports and outlines to the component's ``facing``.
 Verification cues an agent relies on:
 
 - wires draw under component bodies (Logisim-style layering);
-- every known port gets a dot; **floating inputs get a red ring** and
-  shorted-net drivers get an orange ring (reuses the DRC net builder);
+- every known port gets a dot; **floating inputs get a red ring**,
+  shorted-net drivers an orange ring, and unconnected *optional* async
+  pins (flip-flop preset/clear) a neutral gray ring — matching
+  ``check_circuit_drc``;
 - diagonal wires, which Logisim refuses to load, draw red;
 - a junction dot appears where three or more wire ends meet.
 """
@@ -48,6 +50,7 @@ from .canvas import (
     Scene,
     TITLE,
     WIRE,
+    text_width,
 )
 
 GATE_KEYS = ("AND", "OR", "NAND", "NOR", "XOR", "XNOR", "NOT", "BUF")
@@ -279,6 +282,12 @@ def _draw_box(
         ddx = pt[0] - center[0]
         ddy = pt[1] - center[1]
         size = _PORT_MARK_SIZE
+        # Label rects are size+3 tall and text_width(s) wide, so a
+        # fallback step must exceed those or it lands on the poison row
+        # all the same (shifts smaller by 1px once dropped EVERY label
+        # of a box). Touching is fine: the overlap test is strict.
+        row_step = size + 3.0
+        col_step = text_width(port.label, size) + 4.0
 
         def place(bx: float, by: float, anchor: str) -> bool:
             return scene.text(
@@ -288,17 +297,14 @@ def _draw_box(
         if abs(ddx) >= abs(ddy) and ddx != 0:
             bx = pt[0] + (5 if ddx > 0 else -5)
             anchor = "start" if ddx > 0 else "end"
-            # Colliding labels shift one row before giving up silently:
-            # two labels on top of each other in dense layouts read as a
-            # single scrambled word (Q_bar vs the next CLK).
             if not place(bx, pt[1] - 4, anchor):
-                if not place(bx, pt[1] - 4 - (size + 2), anchor):
-                    place(bx, pt[1] - 4 + (size + 2), anchor)
+                if not place(bx, pt[1] - 4 - row_step, anchor):
+                    place(bx, pt[1] - 4 + row_step, anchor)
         elif ddy != 0:
             by = pt[1] + (4 if ddy > 0 else -size * 1.15)
             if not place(pt[0], by, "middle"):
-                if not place(pt[0] - (size * 1.6 + 2), by, "middle"):
-                    place(pt[0] + (size * 1.6 + 2), by, "middle")
+                if not place(pt[0] - col_step, by, "middle"):
+                    place(pt[0] + col_step, by, "middle")
 
 
 def _draw_pin(scene: Scene, comp: Component, spec: ComponentSpec) -> None:

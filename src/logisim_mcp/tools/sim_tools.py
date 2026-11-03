@@ -110,29 +110,42 @@ def run_test_vector(
 # ---------- run_test_circuit -------------------------------------------------
 
 
-def _count_testbenches(project: Project) -> int:
-    """Test benches live as top-level ``<testbench>`` elements (raw XML).
+_TEST_CIRCUIT_CIRCUIT_NAME = "logisim_test_verif"
 
-    The parser keeps unknown top-level children verbatim, so this is the
-    reliable sniffing spot without caring about the bench's attrs.
+
+def _count_testbenches(project: Project) -> int:
+    """Count projects circuits that are test benches.
+
+    Logisim Evolution 5.0.0's ``--test-circuit`` flow saves a dedicated
+    circuit named ``logisim_test_verif`` (the GUI creates it when you
+    save a test bench). The CLI looks the circuit up *by name* and
+    drives its ``test_bench_done_o`` / ``test_bench_ok_o`` output pins;
+    with the circuit missing, the lookup yields null and Logisim NPEs
+    in ``TestBench.startTestBench`` (exit 100, empty output). Logisim
+    neither reads nor accepts any ``<testbench>`` XML element — the
+    loader rejects unknown top-level nodes outright.
     """
-    return sum(1 for extra in project.extras_raw_xml if "<testbench" in extra)
+    return sum(
+        1 for c in project.circuits if c.name == _TEST_CIRCUIT_CIRCUIT_NAME
+    )
 
 
 @mcp.tool()
 def run_test_circuit(path: str, timeout: int = 60) -> dict[str, Any]:
-    """Run the test bench embedded inside a ``.circ`` (``--test-circuit``).
+    """Run the test bench of a ``.circ`` project (``--test-circuit``).
 
-    The project must contain a test bench saved from the Logisim GUI (a
-    top-level ``<testbench>`` element). Without one, Logisim 5.0.0's
-    ``--test-circuit`` crashes with a ``NullPointerException``
-    (``TestBench.startTestBench``, "circuit" is null) — so this tool
-    refuses up front with a pointer to the alternatives
+    The project must contain the test-bench circuit
+    ``logisim_test_verif`` that Logisim Evolution saves from its GUI
+    test-bench flow. Without it, Logisim 5.0.0's ``--test-circuit``
+    crashes with a ``NullPointerException``
+    (``TestBench.startTestBench``, circuit lookup yields null) — so this
+    tool refuses up front and points at the alternatives
     (``simulate_tty``, ``simulate_sequential``, ``run_test_vector``,
     ``verify_truth_table``).
 
-    Exit code 0 means the test bench reached its ``Halt`` (success); any
-    other exit code means it failed or Logisim itself errored.
+    Exit code 0 means the bench went through ``test_bench_done_o`` and
+    then signalled ``test_bench_ok_o`` (success); any other exit code
+    means it failed or Logisim itself errored.
     """
     p = Path(path).expanduser()
     if not p.is_file():
@@ -140,23 +153,25 @@ def run_test_circuit(path: str, timeout: int = 60) -> dict[str, Any]:
     bench_count = _count_testbenches(parse(p))
     if not bench_count:
         raise ValueError(
-            "this project has no embedded test bench, so --test-circuit "
-            "cannot run (Logisim would NPE in TestBench.startTestBench). "
-            "Use simulate_tty, simulate_sequential, run_test_vector, or "
-            "verify_truth_table instead — or save a test bench from the "
-            "Logisim GUI first."
+            f"this project has no test bench — a ``{_TEST_CIRCUIT_CIRCUIT_NAME}"
+            "`` circuit saved from Logisim's test-bench flow is required "
+            "for --test-circuit (Logisim would NPE in "
+            "TestBench.startTestBench). Use simulate_tty, "
+            "simulate_sequential, run_test_vector, or verify_truth_table "
+            "instead — or save a test bench from the Logisim GUI first."
         )
     res = run_java(["--test-circuit", str(p)], timeout=timeout)
     text = f"{res.stdout}\n{res.stderr}".strip()
     if res.timed_out:
         reason = f"timed out after {timeout}s"
     elif res.exit_code == 0:
-        reason = "test bench reached its Halt component (success)"
+        reason = "test bench signalled OK (test_bench_ok_o high)"
     else:
         reason = (
             f"test bench failed or errored (exit {res.exit_code}); "
-            "common causes: no Halt reached, an assertion row failed, or "
-            "Logisim raised a circuit error (see stderr)"
+            "common causes: test_bench_ok_o never went high, an "
+            "assertion failed, or Logisim raised a circuit error (see "
+            "stderr)"
         )
         if not text:
             reason += " [no console output captured]"
