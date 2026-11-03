@@ -49,6 +49,11 @@ The server speaks stdio MCP. Tools fall into five groups:
 
 ## Install
 
+Prefer to let an AI agent do it? Use the
+[agent-assisted installation prompt](docs/agent-install-prompt.md).
+
+### With uv
+
 With [uv](https://docs.astral.sh/uv/) installed, register the server with Cursor, Claude Desktop, or Claude Code. You do not clone this repo. Setup asks where the Logisim jar is, shows the files it will write, and waits for a yes.
 
 ```bash
@@ -71,7 +76,30 @@ Restart the agent. It then has the tools (`describe_circuit`, `add_gate`, `check
 }
 ```
 
-From a checkout you already have, `.venv/bin/logisim-mcp setup` registers that venv's Python instead of `uvx`. `--client cursor` limits which agent is written. `--dry-run` prints the plan only.
+### Without uv
+
+Use Python's standard `venv` and `pip` from a checkout:
+
+```bash
+git clone https://github.com/naczo5/logisim-mcp-plus.git
+cd logisim-mcp-plus
+python3 -m venv .venv
+.venv/bin/pip install .
+.venv/bin/logisim-mcp setup
+```
+
+On Windows, use `.venv\Scripts\pip` and `.venv\Scripts\logisim-mcp`.
+Setup records that venv's interpreter path, so keep the venv in place. If
+you move or delete it, rerun `logisim-mcp setup`.
+
+If you already use [pipx](https://pipx.pypa.io/), this also works without uv:
+
+```bash
+pipx install "git+https://github.com/naczo5/logisim-mcp-plus"
+logisim-mcp setup
+```
+
+`--client cursor` limits which agent is written. `--dry-run` prints the plan only.
 
 If setup cannot see the agent, the same block goes in `~/.cursor/mcp.json`, Claude Desktop's `claude_desktop_config.json`, or Claude Code via `claude mcp add`.
 
@@ -79,7 +107,7 @@ If setup cannot see the agent, the same block goes in `~/.cursor/mcp.json`, Clau
 
 ```bash
 git clone https://github.com/naczo5/logisim-mcp-plus.git
-cd logisim-mcp
+cd logisim-mcp-plus
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
