@@ -36,6 +36,7 @@ The server speaks stdio MCP. Tools fall into five groups:
 | **High-level** | `build_half_adder`, `build_full_adder`, `build_ripple_adder`, `build_mux`, `build_decoder`, `build_comparator`, `build_register`, `build_counter`, `build_from_truth_table` |
 | **Simulation** | `run_test_vector`, `run_test_circuit`, `simulate_tty`, `verify_truth_table`, `simulate_sequential`, `convert_legacy_circ`, `count_components` |
 | **Inspection** | `describe_circuit`, `describe_project`, `check_circuit_drc` |
+| **Render** | `render_circuit` |
 
 ## Requirements
 
@@ -166,6 +167,32 @@ CI without Java still passes the structural part of the suite.
 | `build_register` | yes | sequential vector (clock driven in the rows) |
 | `build_counter` | yes | structural (drive the clock the same way as a register) |
 
+## Rendering (see the schematic)
+
+`render_circuit(path, circuit?, format="png", output?, scale=2, include_image=true)`
+draws a circuit — pure Python, no Java required. Two uses:
+
+- **Verify**: with `format="png"` (the default) the tool also embeds the
+  image as MCP image content, so a multimodal agent looks at the
+  schematic right in the tool result: gate shapes, bubbles, tunnel
+  arrows, wires, labels.
+- **Export**: every call writes the file to disk, next to the `.circ`
+  file by default (`lab.png` for the main circuit, `lab_<circuit>.svg`
+  otherwise). SVG gives a vector export; PNG pixel scale is 1–4.
+
+Verification marks: **red rings** highlight floating inputs, orange
+rings highlight shorted-net drivers (computed by the same net analysis
+as `check_circuit_drc`), and diagonal wires Logisim would reject draw
+red. Gates (AND/OR/XOR/NOT with bubbles and XOR's double back), pins,
+tunnels with labels, mux/decoder/adder/register/counter/flip-flop boxes
+with port labels, clocks, constants, LEDs, subcircuit boxes, and
+unknown components all draw.
+
+```python
+render_circuit("/tmp/lab.circ", "half_adder")
+# → {"circuit": "half_adder", "path": "/tmp/lab_half_adder.png", ...} + image
+```
+
 ## Sequential circuits
 
 `build_register` and `build_counter` emit schematics using Logisim's
@@ -249,14 +276,16 @@ Advisory rather than a public issue.
 - `build_ripple_adder` uses the built-in `Adder` block, not chained
   full-adders.
 - mini-CPU / RAM-loaded scenarios (`--load`) are not wrapped yet.
-- Visual rendering (PNG/SVG) is out of scope; use `describe_circuit`.
+- Rendering ignores per-input `negate` attributes on gates (only the
+  output bubble is drawn). Like `describe_circuit`, it treats the
+  Register/Counter/Adder/Comparator bodies as east-facing whatever
+  `facing` says; plexer (`MUX`/`DEC`) facings do draw correctly.
 
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome, in particular:
 
 - Wrapping `--load`/`--save` for RAM image workflows.
-- An SVG renderer for `.circ` files so the LLM can also "see" schematics.
 
 ## Credits
 

@@ -15,6 +15,7 @@ def register_all_tools() -> None:
         highlevel_tools,
         sim_tools,
         describe_tools,
+        render_tools,
     )
 
 

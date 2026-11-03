@@ -21,6 +21,10 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Java 21 is selected when `java` on `PATH` is older. On Windows the
   launcher uses an in-memory preferences factory so a locked-down
   registry cannot crash startup.
+- `render_circuit` renders a circuit as PNG or SVG — pure Python, no
+  JDK needed. PNG renders embed as MCP image content for multimodal
+  verification; both formats export to disk. Floating inputs ring red,
+  shorted drivers ring orange, diagonal wires draw red.
 
 ### Fixed
 
