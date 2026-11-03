@@ -27,14 +27,14 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
 ]
 dependencies = [
-    "mcp[cli]>=1.6.0",
+    "mcp[cli]>=1.6.0,<2",
     "lxml>=5.2",
 ]
 
 [project.urls]
-Homepage = "https://github.com/virsi/logisim-mcp"
-Repository = "https://github.com/virsi/logisim-mcp"
-Issues = "https://github.com/virsi/logisim-mcp/issues"
+Homepage = "https://github.com/naczo5/logisim-mcp"
+Repository = "https://github.com/naczo5/logisim-mcp"
+Issues = "https://github.com/naczo5/logisim-mcp/issues"
 
 [project.scripts]
 logisim-mcp = "logisim_mcp.__main__:main"
