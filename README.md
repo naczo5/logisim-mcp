@@ -127,6 +127,7 @@ python3 -m venv .venv
 | `LOGISIM_WORKDIR` | current dir | Working dir for subprocess calls |
 | `LOGISIM_TIMEOUT_SEC` | `30` | Default subprocess timeout (clamped to ≤ 600) |
 | `LOGISIM_LOCALE` | `en` | Forces stable English stdout |
+| `LOGISIM_HEADLESS` | `1` | Forces `-Djava.awt.headless=true` on every Java call so errors become clean stderr failures; `0` allows AWT error dialogs |
 
 ## End-to-end example (what Claude does)
 
@@ -182,11 +183,15 @@ draws a circuit — pure Python, no Java required. Two uses:
 
 Verification marks: **red rings** highlight floating inputs, orange
 rings highlight shorted-net drivers (computed by the same net analysis
-as `check_circuit_drc`), and diagonal wires Logisim would reject draw
-red. Gates (AND/OR/XOR/NOT with bubbles and XOR's double back), pins,
-tunnels with labels, mux/decoder/adder/register/counter/flip-flop boxes
-with port labels, clocks, constants, LEDs, subcircuit boxes, and
-unknown components all draw.
+as `check_circuit_drc`), diagonal wires Logisim would reject draw red,
+and **gray rings** mark intentionally unconnected optional pins (the
+async `S`/`R`/`PRE`/`CLR` of flip-flops, safe to leave floating). Dense
+box layouts skip colliding port labels. Gates (AND/OR/XOR/NOT with
+bubbles and XOR's double back), pins, tunnels with labels,
+mux/decoder/adder/register/counter/flip-flop boxes with port labels,
+clocks, constants, LEDs, subcircuit boxes, and unknown components all
+draw. The result reports both logical `width`/`height` and the final
+device `pixel_width`/`pixel_height` (`scale` times larger for PNG).
 
 ```python
 render_circuit("/tmp/lab.circ", "half_adder")

@@ -47,15 +47,21 @@ def apply_windows_prefs(cmd: list[str], prefs_classpath: str | None) -> list[str
 
     ``java -jar`` ignores ``-cp``, and Logisim 5.0.0 crashes in
     ``WindowsPreferences`` when the HKCU JavaSoft registry node cannot be
-    opened. The factory is only injected on Windows.
+    opened. The factory is only injected on Windows. Any ``-D`` options
+    already sitting before ``-jar`` (headless, for example) are carried
+    over in front of ``-cp`` — JVM options must always precede the entry.
     """
     if not prefs_classpath:
         return cmd
-    java, flag, jar, *rest = cmd
-    if flag != "-jar":
+    if "-jar" not in cmd:
         return cmd
+    i = cmd.index("-jar")
+    java, jar = cmd[0], cmd[i + 1]
+    head_opts = cmd[1:i]
+    rest = cmd[i + 2 :]
     return [
         java,
+        *head_opts,
         "-Djava.util.prefs.PreferencesFactory=MemPreferencesFactory",
         "-cp",
         os.pathsep.join([prefs_classpath, jar]),
@@ -278,7 +284,7 @@ def run_seq_tester(
     _ensure_jar()
     _reject_diagonal_circs(args)
     classes = helper_classes()
-    cmd = [SETTINGS.java_binary]
+    cmd = [SETTINGS.java_binary, *SETTINGS.java_options()]
     classpath = [str(classes), str(SETTINGS.logisim_jar)]
     if sys.platform == "win32":
         cmd.append("-Djava.util.prefs.PreferencesFactory=MemPreferencesFactory")

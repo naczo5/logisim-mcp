@@ -16,7 +16,12 @@ from pathlib import Path
 from typing import Any
 
 from ..circ.coords import on_segment
-from ..circ.library import ComponentSpec, is_output_pin, spec_for_component
+from ..circ.library import (
+    ComponentSpec,
+    is_async_optional,
+    is_output_pin,
+    spec_for_component,
+)
 from ..circ.model import Circuit, Component, Point, Project, fmt_loc
 from ..circ.parser import is_diagonal, parse
 from ..server import mcp
@@ -298,6 +303,7 @@ def static_drc(project: Project, circuit: Circuit) -> dict[str, Any]:
                     "direction": port.direction,
                     "at": at,
                     "net": point_to_net.get(at),
+                    "async_optional": port.direction == "in" and is_async_optional(spec, port),
                 }
             )
 
@@ -307,6 +313,7 @@ def static_drc(project: Project, circuit: Circuit) -> dict[str, Any]:
 
     shorted_nets: list[dict[str, Any]] = []
     floating_inputs: list[dict[str, Any]] = []
+    unconnected_optional: list[dict[str, Any]] = []
     for net_id, members in grouped.items():
         drivers = [item for item in members if item["direction"] == "out"]
         if len(drivers) > 1:
@@ -314,9 +321,13 @@ def static_drc(project: Project, circuit: Circuit) -> dict[str, Any]:
                 {"net": net_id, "outputs": [_public_port(item) for item in drivers]}
             )
         if not drivers:
-            floating_inputs.extend(
-                _public_port(item) for item in members if item["direction"] == "in"
-            )
+            for item in members:
+                if item["direction"] != "in":
+                    continue
+                if item["async_optional"]:
+                    unconnected_optional.append(_public_port(item))
+                else:
+                    floating_inputs.append(_public_port(item))
 
     crossings: list[dict[str, Any]] = []
     diagonals: list[dict[str, Any]] = []
@@ -336,6 +347,7 @@ def static_drc(project: Project, circuit: Circuit) -> dict[str, Any]:
     return {
         "shorted_nets": shorted_nets,
         "floating_inputs": floating_inputs,
+        "unconnected_optional_inputs": unconnected_optional,
         "unintended_pin_crossings": crossings,
         "diagonal_wires": diagonals,
     }
@@ -348,11 +360,14 @@ def check_circuit_drc(
     """Static design-rule check, plus a headless count of error-valued wires.
 
     ``shorted_nets`` have more than one driving port. ``floating_inputs``
-    are inputs whose net has no driver. ``unintended_pin_crossings`` are
-    wires that pass across a component port without ending on it.
-    ``diagonal_wires`` are segments Logisim will reject. ``error_wires``
-    is how many wires carry ``Value.ERROR`` after a synchronous propagate;
-    it is ``None`` when the Logisim JAR or a JDK is not available.
+    are inputs whose net has no driver. ``unconnected_optional_inputs``
+    are undriven *optional* pins (the async ``S``/``R``/``PRE``/``CLR``
+    of flip-flops are safe unconnected — Logisim treats them as inactive)
+    and are not errors. ``unintended_pin_crossings`` are wires that pass
+    across a component port without ending on it. ``diagonal_wires`` are
+    segments Logisim will reject. ``error_wires`` is how many wires carry
+    ``Value.ERROR`` after a synchronous propagate; it is ``None`` when
+    the Logisim JAR or a JDK is not available.
     """
     p = Path(path).expanduser()
     if not p.exists():

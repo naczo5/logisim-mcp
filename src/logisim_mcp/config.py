@@ -16,12 +16,28 @@ MAX_TIMEOUT_SEC = 600
 DEFAULT_LOCALE = "en"
 
 
+def _parse_bool_env(raw: str | None, default: bool) -> bool:
+    if raw is None or raw.strip() == "":
+        return default
+    value = raw.strip().lower()
+    if value in ("0", "false", "no", "off"):
+        return False
+    if value in ("1", "true", "yes", "on"):
+        return True
+    raise ValueError(f"unsupported boolean {raw!r} in environment")
+
+
 @dataclass
 class Settings:
     logisim_jar: Path
     workdir: Path
     timeout_sec: int
     locale: str
+    # Run the JVM with -Djava.awt.headless=true: CLI flows never need a
+    # display, and a Logisim startup error then lands on stderr with a
+    # nonzero exit instead of opening a modal AWT/Swing dialog that can
+    # block an agent session. LOGISIM_HEADLESS=0 opts out.
+    headless: bool = True
     _java_binary: str | None = field(
         default=None, init=False, repr=False, compare=False
     )
@@ -33,9 +49,14 @@ class Settings:
             self._java_binary = _resolve_java()
         return self._java_binary
 
+    def java_options(self) -> list[str]:
+        """JVM ``-D`` options that must precede ``-jar``/``-cp``."""
+        return ["-Djava.awt.headless=true"] if self.headless else []
+
     def java_cmd(self, *extra: str) -> list[str]:
         return [
             self.java_binary,
+            *self.java_options(),
             "-jar",
             str(self.logisim_jar),
             "--no-splash",
@@ -225,6 +246,7 @@ def load_settings() -> Settings:
         workdir=_resolve_workdir(),
         timeout_sec=timeout,
         locale=locale,
+        headless=_parse_bool_env(os.environ.get("LOGISIM_HEADLESS"), default=True),
     )
 
 

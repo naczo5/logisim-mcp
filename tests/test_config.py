@@ -208,5 +208,7 @@ def test_windows_run_java_does_not_need_javac(
 
     result = java_runner.run_java(["circuit.circ"])
 
-    assert result.args[1] == "-Djava.util.prefs.PreferencesFactory=MemPreferencesFactory"
-    assert str(prefs_classes()) in result.args[3]
+    # headless precedes the Windows prefs option; both must sit before -cp
+    assert result.args[1] == "-Djava.awt.headless=true"
+    assert result.args[2] == "-Djava.util.prefs.PreferencesFactory=MemPreferencesFactory"
+    assert str(prefs_classes()) in result.args[4]

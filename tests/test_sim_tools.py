@@ -3,15 +3,18 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from typing import Any
 
 from logisim_mcp.config import SETTINGS
 from logisim_mcp.tools.builder_tools import add_component, add_gate, add_pin, connect
 from logisim_mcp.tools.describe_tools import check_circuit_drc
 from logisim_mcp.tools.io_tools import create_circuit_file
 from logisim_mcp.tools.sim_tools import (
+    _count_testbenches,
     _parse_test_vector_output,
     count_components,
     format_truth_table,
+    run_test_circuit,
     run_test_vector,
     simulate_sequential,
     vector_succeeded,
@@ -33,6 +36,79 @@ def test_vector_success_requires_rows_that_actually_ran() -> None:
     assert vector_succeeded(ran, "Passed: 4, Failed: 0\n", "", True) is True
     zero = {"passed": 0, "failed": 0, "reported": True}
     assert vector_succeeded(zero, "Passed: 0, Failed: 0\n", "", True) is False
+
+
+def _bench_project(tmp_path: Path, bench: bool) -> Path:
+    p = tmp_path / "lab.circ"
+    create_circuit_file(str(p))
+    if bench:
+        text = p.read_text()
+        p.write_text(text.replace("</project>", '  <testbench name="tb" circuit="main"/>\n</project>'))
+    return p
+
+
+def test_run_test_circuit_refuses_projects_without_a_testbench(tmp_path: Path) -> None:
+    p = _bench_project(tmp_path, bench=False)
+    # The guard must fire before any java invocation, so this passes on
+    # machines with no Logisim JAR at all.
+    with pytest.raises(ValueError) as excinfo:
+        run_test_circuit(str(p))
+    msg = str(excinfo.value)
+    assert "simulate_tty" in msg and "verify_truth_table" in msg
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "timed_out"),
+    [(0, False), (100, False), (0, True)],
+)
+def test_run_test_circuit_reports_reason_and_stderr(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int, timed_out: bool
+) -> None:
+    from logisim_mcp.runner.java import JavaResult
+
+    p = _bench_project(tmp_path, bench=True)
+    captured: dict[str, Any] = {}
+
+    def fake_run_java(args: list[str], timeout: int | None = None):
+        captured["args"] = args
+        return JavaResult(
+            args=args,
+            exit_code=exit_code,
+            stdout="" if exit_code != 0 else "bench output",
+            stderr="",
+            timed_out=timed_out,
+        )
+
+    monkeypatch.setattr(
+        "logisim_mcp.tools.sim_tools.run_java", fake_run_java
+    )
+    res = run_test_circuit(str(p))
+    assert captured["args"] == ["--test-circuit", str(p)]
+    assert res["testbenches"] >= 1
+    assert res["stderr"] == ""
+    assert res["stdout"] == ("bench output" if exit_code == 0 else "")
+    if timed_out:
+        assert res["ok"] is False
+        assert "timed out" in res["reason"]
+    elif exit_code == 0:
+        assert res["ok"] is True
+        assert "reached its Halt" in res["reason"]
+    else:
+        assert res["ok"] is False
+        assert "(exit 100)" in res["reason"]
+        # exit 100 with nothing on either stream — the suffix removes the
+        # guesswork that the CLI was given nothing to say
+        assert "no console output captured" in res["reason"]
+
+
+def test_count_testbenches_finds_saved_benches(tmp_path: Path) -> None:
+    from logisim_mcp.circ.parser import parse
+    from logisim_mcp.tools.sim_tools import _count_testbenches
+
+    bench = _bench_project(tmp_path, bench=True)
+    assert _count_testbenches(parse(bench)) == 1
+    plain = _bench_project(tmp_path, bench=False)
+    assert _count_testbenches(parse(plain)) == 0
 
 
 def test_empty_sequential_rows_do_not_pass(

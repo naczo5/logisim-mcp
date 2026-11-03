@@ -118,6 +118,10 @@ def render_circuit(
     }
     if fmt == "png":
         result["scale"] = scale
+        # Device pixels are width/height times the PNG scale, so the file
+        # dimensions are never a surprise next to the logical render size.
+        result["pixel_width"] = width * scale
+        result["pixel_height"] = height * scale
     elif include_image:
         result["note"] = "SVG cannot be embedded as image content; use format='png' with include_image=True."
     if fmt == "png" and include_image:

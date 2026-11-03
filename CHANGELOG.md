@@ -25,9 +25,22 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
   JDK needed. PNG renders embed as MCP image content for multimodal
   verification; both formats export to disk. Floating inputs ring red,
   shorted drivers ring orange, diagonal wires draw red.
+- `render_circuit` reports both logical width/height and the PNG's
+  device `pixel_width`/`pixel_height`.
 
 ### Fixed
 
+- `run_test_circuit` fails cleanly on a project without a test bench:
+  `--test-circuit` on such a file crashes Logisim 5.0.0
+  (`TestBench.startTestBench` NPE, exit 100) with no clue in the output.
+  The tool now refuses up front and points at the alternatives.
+- Every Java launch runs with `-Djava.awt.headless=true`
+  (`LOGISIM_HEADLESS=0` opts out), so Logisim's startup errors surface
+  on stderr instead of opening modal dialogs that can block a session.
+- `check_circuit_drc` no longer reports unconnected async preset/clear
+  pins (`S`/`R`/`PRE`/`CLR` of flip-flops) as `floating_inputs`; they
+  appear in `unconnected_optional_inputs` and render with gray rings,
+  matching how Logisim treats them (inactive when unconnected).
 - `verify_truth_table` and `run_test_vector` fail when Logisim exits 0
   without running any rows, including a missing circuit or a vector that
   does not load.

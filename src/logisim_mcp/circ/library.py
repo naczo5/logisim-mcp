@@ -970,6 +970,26 @@ def flip_flop_spec(name: str, classic: bool = False) -> ComponentSpec:
     )
 
 
+def flip_flop_async_labels(name: str) -> set[str]:
+    """Asynchronous preset/clear port labels for a flip-flop family.
+
+    ``S``/``R`` are *optional* async pins on D, T, and J-K flip-flops, but
+    they are the required data pins on an S-R Flip-Flop — there the async
+    pins carry the ``PRE``/``CLR`` labels instead.
+    """
+    if name == "S-R Flip-Flop":
+        return {"PRE", "CLR"}
+    return {"S", "R"}
+
+
+def is_async_optional(spec: ComponentSpec, port: PortSpec) -> bool:
+    """True for an unconnected-tolerant async preset/clear pin."""
+    return (
+        spec.logisim_name in _FLIP_FLOPS
+        and port.label in flip_flop_async_labels(spec.logisim_name)
+    )
+
+
 def led_spec() -> ComponentSpec:
     """LED input sits on ``loc``. East-facing body is 20×20 to the left."""
     return ComponentSpec(

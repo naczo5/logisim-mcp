@@ -154,6 +154,75 @@ def test_scene_marks_floating_and_shorted(tmp_path: Path) -> None:
     assert len(orange) == 2
 
 
+def test_scene_unconnected_async_pins_ring_gray(tmp_path: Path) -> None:
+    """Zadanie-style JK flip-flops: S/R left unconnected on purpose."""
+    from logisim_mcp.tools.builder_tools import add_component
+
+    def setup(path: str) -> None:
+        add_component(path, "main", "J-K Flip-Flop", x=300, y=300)
+
+    circ = tmp_path / "probe.circ"
+    create_circuit_file(str(circ))
+    setup(str(circ))
+    project = parse(circ)
+    circuit = project.require_circuit("main")
+    scene = build_scene(project, circuit)
+    red = [c for c in scene.commands if c[0] == "circle" and c[4] == (198, 40, 40)]
+    gray = [c for c in scene.commands if c[0] == "circle" and c[4] == (140, 150, 160)]
+    # J, K, CLK float (errors); S, R are optional async pins (gray rings)
+    assert len(red) == 3
+    assert len(gray) == 2
+
+
+def test_render_reports_pixel_dimensions(half: Path, tmp_path: Path) -> None:
+    for scale in (1, 3):
+        out = tmp_path / "pd.png"
+        res = render_circuit(str(half), circuit="half_adder", scale=scale,
+                             include_image=False, output=str(out))
+        info = res[-1]
+        assert info["pixel_width"] == info["width"] * scale
+        assert info["pixel_height"] == info["height"] * scale
+        w, h = _png_dims(out.read_bytes())
+        assert (w, h) == (info["pixel_width"], info["pixel_height"])
+
+
+def test_dense_box_port_labels_never_overlap(tmp_path: Path) -> None:
+    """Q_bar vs the next CLK: in the reviewer's dense layout, port labels
+    collided into a scrambled word. skip_overlap fixes it."""
+    from logisim_mcp.tools.builder_tools import add_component
+
+    circ = tmp_path / "dense.circ"
+    create_circuit_file(str(circ))
+    # 80px pitch: bodies are disjoint (60px wide) but the right-side
+    # Q_bar label of one box overlaps the left-side CLK label of the
+    # next — the exact collision reported against dense layouts.
+    for x in (300, 380, 460, 540):
+        add_component(str(circ), "main", "J-K Flip-Flop", x=x, y=490)
+    project = parse(circ)
+    circuit = project.require_circuit("main")
+    scene = build_scene(project, circuit)
+    texts = [c for c in scene.commands if c[0] == "text"]
+    assert len(texts) >= 4  # titles + the labels that did fit
+    rects = []
+    for cmd in texts:
+        _, x, y, s, size, _color, anchor = cmd
+        from logisim_mcp.render.canvas import text_width
+
+        w = text_width(s, size)
+        if anchor == "end":
+            x0, x1 = x - w, x
+        elif anchor == "middle":
+            x0, x1 = x - w / 2, x + w / 2
+        else:
+            x0, x1 = x, x + w
+        rects.append((x0, y - 2, x1, y + size + 1))
+    for i, (a, ta) in enumerate(zip(rects, texts)):
+        for b, tb in zip(rects[i + 1 :], texts[i + 1 :]):
+            assert (
+                a[0] >= b[2] or b[0] >= a[2] or a[1] >= b[3] or b[1] >= a[3]
+            ), f"text overlap: {ta[3]!r} vs {tb[3]!r}"
+
+
 def test_scene_unknown_and_specials(tmp_path: Path) -> None:
     circ = tmp_path / "misc.circ"
     create_circuit_file(str(circ))

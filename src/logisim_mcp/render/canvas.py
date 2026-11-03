@@ -30,6 +30,9 @@ PIN_OUT_FILL = rgb(253, 246, 227)
 ACCENT_RED = rgb(198, 40, 40)
 ACCENT_ORANGE = rgb(230, 100, 10)
 LED_UNLIT = rgb(148, 163, 184)
+# Distinct from error colors: neutral gray for intentionally unused
+# optional pins (async preset/clear).
+OPTIONAL_RING = rgb(140, 150, 160)
 GRAY_FILL = rgb(107, 114, 128)
 BOX_FILL = rgb(240, 250, 255)
 LABEL = rgb(30, 34, 40)
@@ -41,6 +44,8 @@ class Scene:
     """A recorded drawing command list plus the bounds it covers."""
 
     commands: list[tuple] = field(default_factory=list)
+    # Drawn text rectangles (for skip_overlap label placement).
+    _text_rects: list[tuple[float, float, float, float]] = field(default_factory=list)
     min_x: float | None = None
     min_y: float | None = None
     max_x: float | None = None
@@ -150,15 +155,20 @@ class Scene:
         size: float = 14.0,
         color: tuple[int, int, int] = LABEL,
         anchor: str = "start",
+        skip_overlap: bool = False,
     ) -> None:
         """Draw ``s`` with its *cap top-left region* near ``(x, y)``.
 
         ``anchor`` is interpreted horizontally only ('start', 'middle',
         'end'). ``y`` is the top of the glyphs; the baseline lands at
-        ``y + cap_height``.
+        ``y + cap_height``. With ``skip_overlap=True`` the label is
+        silently omitted when its rectangle would intersect any text
+        already on the canvas — used for port labels in dense layouts,
+        where a colliding label is noise, not information.
+
+        Returns True when drawn, False when skipped under ``skip_overlap``.
         """
         s = str(s)
-        self.commands.append(("text", x, y, s, size, color, anchor))
         w = text_width(s, size)
         if anchor == "end":
             x0, x1 = x - w, x
@@ -166,7 +176,16 @@ class Scene:
             x0, x1 = x - w / 2, x + w / 2
         else:
             x0, x1 = x, x + w
+        y0, y1 = y - 2, y + size + 1
+        if skip_overlap and any(
+            x0 < tx1 and tx0 < x1 and y0 < ty1 and ty0 < y1
+            for tx0, ty0, tx1, ty1 in self._text_rects
+        ):
+            return False
+        self.commands.append(("text", x, y, s, size, color, anchor))
+        self._text_rects.append((x0, y0, x1, y1))
         self._cover(x0 - 1, y - 2, x1 + 1, y + size + 1)
+        return True
 
     @property
     def empty(self) -> bool:

@@ -13,6 +13,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ..circ.model import Project
+from ..circ.parser import parse
 from ..runner.java import run_java, run_seq_tester
 from ..server import mcp
 
@@ -108,17 +110,61 @@ def run_test_vector(
 # ---------- run_test_circuit -------------------------------------------------
 
 
+def _count_testbenches(project: Project) -> int:
+    """Test benches live as top-level ``<testbench>`` elements (raw XML).
+
+    The parser keeps unknown top-level children verbatim, so this is the
+    reliable sniffing spot without caring about the bench's attrs.
+    """
+    return sum(1 for extra in project.extras_raw_xml if "<testbench" in extra)
+
+
 @mcp.tool()
 def run_test_circuit(path: str, timeout: int = 60) -> dict[str, Any]:
     """Run the test bench embedded inside a ``.circ`` (``--test-circuit``).
 
+    The project must contain a test bench saved from the Logisim GUI (a
+    top-level ``<testbench>`` element). Without one, Logisim 5.0.0's
+    ``--test-circuit`` crashes with a ``NullPointerException``
+    (``TestBench.startTestBench``, "circuit" is null) — so this tool
+    refuses up front with a pointer to the alternatives
+    (``simulate_tty``, ``simulate_sequential``, ``run_test_vector``,
+    ``verify_truth_table``).
+
     Exit code 0 means the test bench reached its ``Halt`` (success); any
-    other exit code means it failed.
+    other exit code means it failed or Logisim itself errored.
     """
-    res = run_java(["--test-circuit", str(path)], timeout=timeout)
+    p = Path(path).expanduser()
+    if not p.is_file():
+        raise FileNotFoundError(f"no such file: {path}")
+    bench_count = _count_testbenches(parse(p))
+    if not bench_count:
+        raise ValueError(
+            "this project has no embedded test bench, so --test-circuit "
+            "cannot run (Logisim would NPE in TestBench.startTestBench). "
+            "Use simulate_tty, simulate_sequential, run_test_vector, or "
+            "verify_truth_table instead — or save a test bench from the "
+            "Logisim GUI first."
+        )
+    res = run_java(["--test-circuit", str(p)], timeout=timeout)
+    text = f"{res.stdout}\n{res.stderr}".strip()
+    if res.timed_out:
+        reason = f"timed out after {timeout}s"
+    elif res.exit_code == 0:
+        reason = "test bench reached its Halt component (success)"
+    else:
+        reason = (
+            f"test bench failed or errored (exit {res.exit_code}); "
+            "common causes: no Halt reached, an assertion row failed, or "
+            "Logisim raised a circuit error (see stderr)"
+        )
+        if not text:
+            reason += " [no console output captured]"
     return {
         "ok": res.ok,
         "exit_code": res.exit_code,
+        "reason": reason,
+        "testbenches": bench_count,
         "stdout": res.stdout,
         "stderr": res.stderr,
     }

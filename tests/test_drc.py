@@ -43,6 +43,36 @@ def test_static_drc_flags_shorts_floats_crossings_and_diagonals() -> None:
     assert (0, 120) not in point_to_net or point_to_net[(0, 120)] != point_to_net.get((40, 160))
 
 
+def test_unconnected_async_pins_are_optional_not_errors() -> None:
+    """J-K flip-flop S/R are async preset/clear: Logisim treats an
+    unconnected async pin as inactive, so they must not count as errors."""
+    project = empty_project()
+    circuit = project.circuits[0]
+    circuit.components.append(
+        Component("5", "J-K Flip-Flop", (300, 300), {"trigger": "rising"})
+    )
+    report = static_drc(project, circuit)
+    floating_labels = {item["port"] for item in report["floating_inputs"]}
+    optional_labels = {item["port"] for item in report["unconnected_optional_inputs"]}
+    assert floating_labels == {"J", "K", "CLK"}
+    assert optional_labels == {"S", "R"}
+
+
+def test_sr_flip_flop_data_pins_are_required() -> None:
+    """On an S-R Flip-Flop, S and R are the *data* pins (required); only
+    PRE/CLR are the optional async pins there."""
+    project = empty_project()
+    circuit = project.circuits[0]
+    circuit.components.append(
+        Component("5", "S-R Flip-Flop", (300, 300), {"trigger": "rising"})
+    )
+    report = static_drc(project, circuit)
+    floating_labels = {item["port"] for item in report["floating_inputs"]}
+    optional_labels = {item["port"] for item in report["unconnected_optional_inputs"]}
+    assert {"S", "R"} <= floating_labels
+    assert optional_labels == {"PRE", "CLR"}
+
+
 def test_crossing_wires_stay_separate_but_t_junctions_connect() -> None:
     project = empty_project()
     circuit = project.circuits[0]

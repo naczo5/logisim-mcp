@@ -39,6 +39,7 @@ from .canvas import (
     JUNCTION,
     LABEL,
     LED_UNLIT,
+    OPTIONAL_RING,
     PIN_IN,
     PIN_IN_FILL,
     PIN_OUT,
@@ -76,14 +77,18 @@ def _pt(loc: Point, p: tuple[float, float], facing: str) -> tuple[float, float]:
     return loc[0] + dx, loc[1] + dy
 
 
-def _port_status(project: Project, circuit: Circuit) -> tuple[set[Point], set[Point]]:
-    """Points of floating inputs and shorted-net drivers, from the DRC
-    net builder (describe_tools), so the picture matches the report."""
+def _port_status(
+    project: Project, circuit: Circuit
+) -> tuple[set[Point], set[Point], set[Point]]:
+    """Points of floating required inputs, shorted-net drivers, and
+    unconnected *optional* (async preset/clear) pins — from the DRC net
+    builder (describe_tools), so the picture matches the report."""
+    from ..circ.library import is_async_optional
     from ..tools.describe_tools import _build_nets
 
     point_to_net, _ = _build_nets(project, circuit)
     drivers: dict[int, int] = {}
-    members: list[tuple[Point, str, int]] = []
+    members: list[tuple[Point, str, int, bool]] = []
     for comp in circuit.components:
         spec = spec_for_component(project, comp)
         if spec is None:
@@ -93,12 +98,24 @@ def _port_status(project: Project, circuit: Circuit) -> tuple[set[Point], set[Po
             nid = point_to_net.get(pt)
             if nid is None:
                 continue
-            members.append((pt, port.direction, nid))
+            members.append(
+                (pt, port.direction, nid, is_async_optional(spec, port))
+            )
             if port.direction == "out":
                 drivers[nid] = drivers.get(nid, 0) + 1
-    floating = {pt for pt, direction, nid in members if direction == "in" and drivers.get(nid, 0) == 0}
-    shorted = {pt for pt, direction, nid in members if direction == "out" and drivers.get(nid, 0) >= 2}
-    return floating, shorted
+    floating = {
+        pt for pt, direction, nid, optional in members
+        if direction == "in" and drivers.get(nid, 0) == 0 and not optional
+    }
+    shorted = {
+        pt for pt, direction, nid, optional in members
+        if direction == "out" and drivers.get(nid, 0) >= 2
+    }
+    optional = {
+        pt for pt, direction, nid, optional in members
+        if direction == "in" and drivers.get(nid, 0) == 0 and optional
+    }
+    return floating, shorted, optional
 
 
 # ----- sampling helpers -----------------------------------------------------
@@ -261,18 +278,27 @@ def _draw_box(
         pt = (comp.loc[0] + port.dx, comp.loc[1] + port.dy)
         ddx = pt[0] - center[0]
         ddy = pt[1] - center[1]
+        size = _PORT_MARK_SIZE
+
+        def place(bx: float, by: float, anchor: str) -> bool:
+            return scene.text(
+                bx, by, port.label, size=size, anchor=anchor, skip_overlap=True
+            )
+
         if abs(ddx) >= abs(ddy) and ddx != 0:
-            if ddx > 0:
-                scene.text(pt[0] + 5, pt[1] - 4, port.label, size=_PORT_MARK_SIZE, anchor="start")
-            else:
-                scene.text(pt[0] - 5, pt[1] - 4, port.label, size=_PORT_MARK_SIZE, anchor="end")
+            bx = pt[0] + (5 if ddx > 0 else -5)
+            anchor = "start" if ddx > 0 else "end"
+            # Colliding labels shift one row before giving up silently:
+            # two labels on top of each other in dense layouts read as a
+            # single scrambled word (Q_bar vs the next CLK).
+            if not place(bx, pt[1] - 4, anchor):
+                if not place(bx, pt[1] - 4 - (size + 2), anchor):
+                    place(bx, pt[1] - 4 + (size + 2), anchor)
         elif ddy != 0:
-            if ddy > 0:
-                scene.text(pt[0], pt[1] + 4, port.label, size=_PORT_MARK_SIZE, anchor="middle")
-            else:
-                scene.text(
-                    pt[0], pt[1] - _PORT_MARK_SIZE * 1.15, port.label, size=_PORT_MARK_SIZE, anchor="middle"
-                )
+            by = pt[1] + (4 if ddy > 0 else -size * 1.15)
+            if not place(pt[0], by, "middle"):
+                if not place(pt[0] - (size * 1.6 + 2), by, "middle"):
+                    place(pt[0] + (size * 1.6 + 2), by, "middle")
 
 
 def _draw_pin(scene: Scene, comp: Component, spec: ComponentSpec) -> None:
@@ -412,6 +438,7 @@ def _draw_ports(
     circuit: Circuit,
     floating: set[Point],
     shorted: set[Point],
+    optional: set[Point],
 ) -> None:
     for comp in circuit.components:
         spec = spec_for_component(project, comp)
@@ -424,6 +451,11 @@ def _draw_ports(
                 scene.circle(pt[0], pt[1], 6, stroke=ACCENT_RED, fill=None, width=1.6)
             elif pt in shorted:
                 scene.circle(pt[0], pt[1], 6, stroke=ACCENT_ORANGE, fill=None, width=1.6)
+            elif pt in optional:
+                # Intentionally-unused async preset/clear pins: Logisim
+                # treats an unconnected one as inactive, so a neutral
+                # gray ring instead of an alarming error color.
+                scene.circle(pt[0], pt[1], 6, stroke=OPTIONAL_RING, fill=None, width=1.4)
 
 
 def build_scene(project: Project, circuit: Circuit) -> Scene:
@@ -433,7 +465,7 @@ def build_scene(project: Project, circuit: Circuit) -> Scene:
         scene.text(0, -10, "(empty circuit)", size=15, color=GRAY_FILL, anchor="middle")
         return scene
 
-    floating, shorted = _port_status(project, circuit)
+    floating, shorted, optional = _port_status(project, circuit)
     _draw_wires(scene, circuit)
 
     circuit_names = {c.name for c in project.circuits}
@@ -465,5 +497,5 @@ def build_scene(project: Project, circuit: Circuit) -> Scene:
         else:
             _draw_unknown(scene, comp)
 
-    _draw_ports(scene, project, circuit, floating, shorted)
+    _draw_ports(scene, project, circuit, floating, shorted, optional)
     return scene
