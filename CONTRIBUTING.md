@@ -6,13 +6,13 @@ so the bar to merge is fairly straightforward.
 ## Setup
 
 ```bash
-git clone https://github.com/virsi/logisim-mcp.git
+git clone https://github.com/naczo5/logisim-mcp.git
 cd logisim-mcp
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 ```
 
-For end-to-end tests you also need Java ≥ 17 and the Logisim Evolution
+For end-to-end tests you also need Java ≥ 21 and the Logisim Evolution
 fat-jar. The default path is the macOS app bundle; override with
 `LOGISIM_JAR=…` if you keep the jar elsewhere.
 

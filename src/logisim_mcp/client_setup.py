@@ -16,7 +16,7 @@ from pathlib import Path
 
 from .config import DEFAULT_LOGISIM_JAR
 
-GIT_FROM = "git+https://github.com/virsi/logisim-mcp"
+GIT_FROM = "git+https://github.com/naczo5/logisim-mcp"
 SERVER_NAME = "logisim"
 CLIENTS = ("cursor", "claude-desktop", "claude-code")
 

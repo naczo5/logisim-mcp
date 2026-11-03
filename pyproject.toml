@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/virsi/logisim-mcp"
-Repository = "https://github.com/virsi/logisim-mcp"
-Issues = "https://github.com/virsi/logisim-mcp/issues"
+Homepage = "https://github.com/naczo5/logisim-mcp"
+Repository = "https://github.com/naczo5/logisim-mcp"
+Issues = "https://github.com/naczo5/logisim-mcp/issues"
 
 [project.scripts]
 logisim-mcp = "logisim_mcp.__main__:main"
