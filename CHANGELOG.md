@@ -8,7 +8,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ### Added
 
 - `logisim-mcp setup` registers the server with Cursor, Claude Desktop, or
-  Claude Code. `uvx --from git+https://github.com/naczo5/logisim-mcp logisim-mcp setup`
+  Claude Code. `uvx --from git+https://github.com/naczo5/logisim-mcp-plus logisim-mcp setup`
   does this without cloning the repo.
 - `simulate_sequential` steps a circuit with `Propagator` on the calling
   thread, including `Clock` components (`<tick>`) and LED outputs.

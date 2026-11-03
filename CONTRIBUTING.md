@@ -6,7 +6,7 @@ so the bar to merge is fairly straightforward.
 ## Setup
 
 ```bash
-git clone https://github.com/naczo5/logisim-mcp.git
+git clone https://github.com/naczo5/logisim-mcp-plus.git
 cd logisim-mcp
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"

@@ -1,24 +1,9 @@
-# logisim-mcp
+# logisim-mcp-plus
 
-> **Maintained fork:** this is [naczo5/logisim-mcp](https://github.com/naczo5/logisim-mcp),
-> based on [virsi/logisim-mcp](https://github.com/virsi/logisim-mcp). The
-> original project credits are in [Credits](#credits).
+> **Maintained fork** of [virsi/logisim-mcp](https://github.com/virsi/logisim-mcp).
+> Original project credits and donation links are in [Credits](#credits).
 
-<p align="center">
-  <a href="https://boosty.to/virsi/donate">
-    <img alt="Donate on Boosty" src="https://img.shields.io/badge/Boosty-Donate-f15f2c?style=for-the-badge&logo=boosty&logoColor=white">
-  </a>
-  <a href="https://yoomoney.ru/fundraise/1HOILVESO53.260514">
-    <img alt="Donate via YooMoney" height="40" src=".github/assets/yoomoney.png">
-  </a>
-</p>
-
-> If `logisim-mcp` saved you an evening of wiring NAND gates by hand,
-> consider [supporting the project on Boosty](https://boosty.to/virsi/donate)
-> or [donating via YooMoney](https://yoomoney.ru/fundraise/1HOILVESO53.260514) —
-> it keeps the lights on and the builders coming.
-
-[![tests](https://github.com/naczo5/logisim-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/naczo5/logisim-mcp/actions/workflows/ci.yml)
+[![tests](https://github.com/naczo5/logisim-mcp-plus/actions/workflows/ci.yml/badge.svg)](https://github.com/naczo5/logisim-mcp-plus/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -26,6 +11,21 @@ MCP (Model Context Protocol) server for [Logisim Evolution](https://github.com/l
 Lets a large language model design, edit and verify digital circuits in
 the native `.circ` format **without ever opening the GUI**. Built for
 students doing digital-logic labs with an AI assistant.
+
+## What changed from the original
+
+This fork focuses on making the project work reliably with current
+Logisim Evolution and current Java runtimes:
+
+- **Logisim Evolution 5.0.0 support** — updated component geometry, port maps, and `.circ` output.
+- **Safer synthesis and routing** — separate output trees, tunnel-label namespacing, foreign-wire endpoint checks, and better auto-placement.
+- **More reliable sequential simulation** — configurable clock periods, full-width values, stricter row validation, and clearer failures.
+- **Cross-platform Java handling** — Java 21 discovery, sibling `javac` selection, Windows JRE support, and an atomic shared helper cache.
+- **Better setup and diagnostics** — fork-aware install URLs, lazy Java checks, DRC fallback without a JDK, and a much larger regression suite.
+
+See [CHANGELOG.md](CHANGELOG.md) for the complete list.
+
+## Tools
 
 The server speaks stdio MCP. Tools fall into five groups:
 
@@ -52,7 +52,7 @@ The server speaks stdio MCP. Tools fall into five groups:
 With [uv](https://docs.astral.sh/uv/) installed, register the server with Cursor, Claude Desktop, or Claude Code. You do not clone this repo. Setup asks where the Logisim jar is, shows the files it will write, and waits for a yes.
 
 ```bash
-uvx --from git+https://github.com/naczo5/logisim-mcp logisim-mcp setup
+uvx --from git+https://github.com/naczo5/logisim-mcp-plus logisim-mcp setup
 ```
 
 Restart the agent. It then has the tools (`describe_circuit`, `add_gate`, `check_circuit_drc`, `simulate_sequential`, and the rest). The config it writes looks like this:
@@ -62,7 +62,7 @@ Restart the agent. It then has the tools (`describe_circuit`, `add_gate`, `check
   "mcpServers": {
     "logisim": {
       "command": "uvx",
-      "args": ["--from", "git+https://github.com/naczo5/logisim-mcp", "logisim-mcp"],
+      "args": ["--from", "git+https://github.com/naczo5/logisim-mcp-plus", "logisim-mcp"],
       "env": {
         "LOGISIM_JAR": "/ABSOLUTE/PATH/TO/logisim-evolution-5.0.0-all.jar"
       }
@@ -78,7 +78,7 @@ If setup cannot see the agent, the same block goes in `~/.cursor/mcp.json`, Clau
 ## Work on the code
 
 ```bash
-git clone https://github.com/naczo5/logisim-mcp.git
+git clone https://github.com/naczo5/logisim-mcp-plus.git
 cd logisim-mcp
 python3 -m venv .venv
 .venv/bin/pip install -e ".[dev]"
@@ -236,12 +236,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome, in particular:
   by [virsi](https://github.com/virsi). This fork keeps the original
   architecture, documentation, and tool design, and adds Logisim Evolution
   5.0 support plus the fixes listed in [CHANGELOG.md](CHANGELOG.md).
-- **Maintained fork:** [naczo5/logisim-mcp](https://github.com/naczo5/logisim-mcp).
+- **Maintained fork:** [naczo5/logisim-mcp-plus](https://github.com/naczo5/logisim-mcp-plus).
 - **Logisim Evolution:** [logisim-evolution/logisim-evolution](https://github.com/logisim-evolution/logisim-evolution).
 - **MCP Python SDK:** [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk).
 
-The donation links above belong to the original author. If this fork saves
-you time, please consider supporting the upstream project too.
+Original author donations: [Boosty](https://boosty.to/virsi/donate) ·
+[YooMoney](https://yoomoney.ru/fundraise/1HOILVESO53.260514) — these go
+to the upstream project, not this fork.
 
 ## License
 
