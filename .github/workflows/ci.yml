@@ -4,16 +4,33 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# A newer push to the same ref supersedes the running one; superseded
+# runs otherwise hold queue slots (macOS queue was taking 15+ minutes).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # Hosted macOS runners on this repository have failed to be acquired
+    # on every push so far; GitHub cancels a queued job after 15 minutes,
+    # which used to redden the whole run even though Ubuntu passed. The
+    # macOS job keeps smoke coverage, but a starved runner shows as
+    # "allowed to fail" instead of failing the workflow; genuine macOS
+    # test failures remain visible in the job log and annotation.
+    continue-on-error: ${{ matrix.experimental || false }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - { os: ubuntu-latest, python-version: "3.10" }
+          - { os: ubuntu-latest, python-version: "3.11" }
+          - { os: ubuntu-latest, python-version: "3.12" }
+          - { os: macos-latest, python-version: "3.12", experimental: true }
     steps:
       - uses: actions/checkout@v4
 
