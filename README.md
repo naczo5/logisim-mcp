@@ -1,7 +1,7 @@
 # logisim-mcp-plus
 
 > **Maintained fork** of [virsi/logisim-mcp](https://github.com/virsi/logisim-mcp).
-> Original project credits and donation links are in [Credits](#credits).
+> Original project credits are in [Credits](#credits).
 
 [![tests](https://github.com/naczo5/logisim-mcp-plus/actions/workflows/ci.yml/badge.svg)](https://github.com/naczo5/logisim-mcp-plus/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -301,10 +301,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). PRs welcome, in particular:
 - **Maintained fork:** [naczo5/logisim-mcp-plus](https://github.com/naczo5/logisim-mcp-plus).
 - **Logisim Evolution:** [logisim-evolution/logisim-evolution](https://github.com/logisim-evolution/logisim-evolution).
 - **MCP Python SDK:** [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk).
-
-Original author donations: [Boosty](https://boosty.to/virsi/donate) ·
-[YooMoney](https://yoomoney.ru/fundraise/1HOILVESO53.260514) — these go
-to the upstream project, not this fork.
 
 ## License
 
